@@ -1,8 +1,8 @@
 <div align="center">
 
-![:name](https://count.getloli.com/@astrbot_plugin_memelite?name=astrbot_plugin_memelite&theme=minecraft&padding=6&offset=0&align=top&scale=1&pixelated=1&darkmode=auto)
+![:name](https://count.getloli.com/@astrbot_plugin_memelite_rs?name=astrbot_plugin_memelite_rs&theme=minecraft&padding=6&offset=0&align=top&scale=1&pixelated=1&darkmode=auto)
 
-# astrbot_plugin_memelite
+# astrbot_plugin_memelite_rs
 
 _✨ [astrbot](https://github.com/AstrBotDevs/AstrBot) 表情包制作插件 ✨_  
 
@@ -28,14 +28,14 @@ _✨ [astrbot](https://github.com/AstrBotDevs/AstrBot) 表情包制作插件 ✨
 
 ### 第二步，安装本插件
 
-- 可以直接在astrbot的插件市场搜索astrbot_plugin_memelite，点击安装，耐心等待安装完成即可  
+- 可以直接在astrbot的插件市场搜索astrbot_plugin_memelite_rs，点击安装，耐心等待安装完成即可  
 
 - 或者可以直接克隆源码到插件文件夹：
 
 ```bash
 # 克隆仓库到插件目录
 cd /AstrBot/data/plugins
-git clone https://github.com/Zhalslar/astrbot_plugin_memelite
+git clone https://github.com/Zhalslar/astrbot_plugin_memelite_rs
 
 # 控制台重启AstrBot
 ```
@@ -65,6 +65,9 @@ apt-get update && apt-get install -y libgl1 libglib2.0-0
 | /meme帮助      | 查看所有能触发meme合成的关键词  |
 | /meme详情 xxx  | 具体查看某个meme的参数         |
 |   {关键词}     |   触发meme合成            |
+|   禁用meme xxx    |   禁用指定meme           |
+|   启用meme xxx    |   启用指定meme           |
+|   meme黑名单     |   查看哪些meme被禁用了        |
 
 , 关键词包括：
 
@@ -127,13 +130,13 @@ apt-get update && apt-get install -y libgl1 libglib2.0-0
 
 > 已经写得很详细了，还是不会的话建议放弃。
 
-### 第一步，下载动态链接库。  
+### 第一步，下载动态链接库  
 
 前往[meme-generator 额外表情动态链接库](https://github.com/MemeCrafters/meme-generator-contrib-rs/actions) 往下滑找到动态链接库，根据你的环境选择对应版本，如图示例：
 ![tmp1CF8](https://github.com/user-attachments/assets/fbb39f01-8a25-4602-90a1-629876cc13e8)
 下载完后解压得到的.so后缀文件，这个文件就是所需的动态链接库。
 
-### 第二步，动态链接库放置于 $MEME_HOME/libraries 文件夹下（libraries文件夹若不存在则新建一个）。
+### 第二步，动态链接库放置于 $MEME_HOME/libraries 文件夹下（libraries文件夹若不存在则新建一个）
 
 $MEME_HOME 默认位置为 $HOME/.meme_generator
 
@@ -143,12 +146,10 @@ $MEME_HOME 默认位置为 $HOME/.meme_generator
     MacOS: /Users/<username>
     Windows: C:\Users\<username>
 
-
 Linux和windows的示例路径：
 ![tmp41F5](https://github.com/user-attachments/assets/ffbcb3d5-d971-409f-ba2e-86db76a6a9d6)
 
-
-### 第三步，在 配置文件 将 load_external_memes 设置为 true。
+### 第三步，在 配置文件 将 load_external_memes 设置为 true
 
 打开config.toml文件，将下面的内容复制粘贴进去即可（当然其他配置你也可以根据个人喜好更改）
 
@@ -185,7 +186,7 @@ port = 2233  # web server 端口
 
 ![tmp6EA4](https://github.com/user-attachments/assets/e141c05b-8996-451a-b85d-55b1e7891ccb)
 
-### 第五步，重启astrbot。
+### 第五步，重启astrbot
 
 ## 🔗 相关链接
 
@@ -195,5 +196,3 @@ port = 2233  # web server 端口
 - [meme-generator-rs 额外表情仓库](https://github.com/MemeCrafters/meme-generator-contrib-rs)
 - [nonebot-plugin-memes](https://github.com/MemeCrafters/nonebot-plugin-memes) 表情包生成器 meme-generator 的 Nonebot2 对接插件
 - [Astrbot](https://astrbot.app/) 易于上手的多平台聊天机器人及开发框架。
-
-
