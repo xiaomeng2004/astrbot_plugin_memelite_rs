@@ -29,11 +29,11 @@ from astrbot.core.star.filter.event_message_type import EventMessageType
 
 
 @register(
-    "astrbot_plugin_memelite",
+    "astrbot_plugin_memelite_rs",
     "Zhalslar",
-    "表情包生成器，制作各种沙雕表情（本地部署，但轻量化）",
-    "2.0.4",
-    "https://github.com/Zhalslar/astrbot_plugin_memelite",
+    "表情包生成器，制作各种沙雕表情（Rust重构版，速度快占用小） ",
+    "2.0.0",
+    "https://github.com/Zhalslar/astrbot_plugin_memelite_rs",
 )
 class MemePlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
