@@ -1,9 +1,9 @@
 {
     "prefix": {
-        "description": "启用全局前缀",
-        "type": "bool",
-        "hint": "启用后，需要在触发词前加上bot的全局前缀",
-        "default": "false"
+        "description": "自定义触发前缀",
+        "type": "string",
+        "hint": "填写后，需要加前缀才能触发meme",
+        "default": ""
     },
      "fuzzy_match": {
         "description": "是否模糊匹配触发",
@@ -27,7 +27,7 @@
     "sort_by_str": {
         "description": "meme列表排序方式",
         "type": "string",
-        "hint": "影响查看meme列表时的排序",
+        "hint": "影响查看meme列表时的排序（暂时是无效配置）",
         "options": [
             "key",
             "keywords",

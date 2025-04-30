@@ -32,19 +32,24 @@ from astrbot.core.star.filter.event_message_type import EventMessageType
     "astrbot_plugin_memelite_rs",
     "Zhalslar",
     "表情包生成器，制作各种沙雕表情（Rust重构版，速度快占用小） ",
-    "2.0.0",
+    "2.0.1",
     "https://github.com/Zhalslar/astrbot_plugin_memelite_rs",
 )
 class MemePlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
         super().__init__(context)
         self.config = config
+
         self.memes_disabled_list: list[str] = config.get("memes_disabled_list", [])
         self.sort_by_str: str = config.get("sort_by_str", "key")
+
         self.memes: list[Meme] = get_memes()
-        self.meme_keywords = [keyword for meme in self.memes for keyword in meme.info.keywords]
-        self.wake_prefix: list[str] =  self.context.get_config().get("wake_prefix", [])
-        self.prefix_mode: bool = config.get("prefix", False)  # 是否启用前缀模式
+        self.meme_keywords = [
+            keyword for meme in self.memes for keyword in meme.info.keywords
+        ]
+
+        self.prefix: str = config.get("prefix", "")
+
         self.fuzzy_match: int = config.get("fuzzy_match", True)
         self.is_compress_image: bool = config.get("is_compress_image", True)
 
@@ -126,7 +131,9 @@ class MemePlugin(Star):
         yield event.chain_result(chain)
 
     @filter.command("禁用meme")
-    async def add_supervisor(self, event: AstrMessageEvent, meme_name: str|None=None):
+    async def add_supervisor(
+        self, event: AstrMessageEvent, meme_name: str | None = None
+    ):
         """禁用meme"""
         if not meme_name:
             yield event.plain_result("未指定要禁用的meme")
@@ -143,7 +150,9 @@ class MemePlugin(Star):
         logger.info(f"当前禁用meme: {self.config['memes_disabled_list']}")
 
     @filter.command("启用meme")
-    async def remove_supervisor(self, event: AstrMessageEvent, meme_name: str|None=None):
+    async def remove_supervisor(
+        self, event: AstrMessageEvent, meme_name: str | None = None
+    ):
         """启用meme"""
         if not meme_name:
             yield event.plain_result("未指定要禁用的meme")
@@ -163,7 +172,6 @@ class MemePlugin(Star):
         """查看禁用的meme"""
         yield event.plain_result(f"当前禁用的meme: {self.memes_disabled_list}")
 
-
     @filter.event_message_type(EventMessageType.ALL)
     async def meme_handle(self, event: AstrMessageEvent):
         """
@@ -177,16 +185,14 @@ class MemePlugin(Star):
         """
 
         # 前缀模式
-        if self.prefix_mode:
+        if self.prefix:
             chain = event.get_messages()
             if not chain:
                 return
             first_seg = chain[0]
             # 前缀触发
             if isinstance(first_seg, Comp.Plain):
-                if not any(
-                    first_seg.text.startswith(prefix) for prefix in self.wake_prefix
-                ):
+                if not first_seg.text.startswith(self.prefix):
                     return
             # @bot触发
             elif isinstance(first_seg, Comp.At):
@@ -195,19 +201,17 @@ class MemePlugin(Star):
             else:
                 return
 
-        message_str = event.get_message_str()
+        message_str = event.get_message_str().removeprefix(self.prefix)
         if not message_str:
             return
 
-        # 精准/模糊匹配
-        keyword = next(
-            (
-                k
-                for k in self.meme_keywords
-                if k in (message_str if self.fuzzy_match else message_str.split()[0])
-            ),
-            None,
-        )
+        if self.fuzzy_match:
+            # 模糊匹配：检查关键词是否在消息字符串中
+            keyword = next((k for k in self.meme_keywords if k in message_str), None)
+        else:
+            # 精确匹配：检查关键词是否等于消息字符串的第一个单词
+            keyword = next((k for k in self.meme_keywords if k == message_str.split()[0]), None)
+
         if not keyword or keyword in self.memes_disabled_list:
             return
 
@@ -281,11 +285,7 @@ class MemePlugin(Star):
             elif isinstance(_seg, Comp.Plain):
                 plains: list[str] = _seg.text.strip().split()
                 for text in plains:
-                    if (
-                        text != keyword
-                        and text not in self.wake_prefix
-                        and all(text != prefix + keyword for prefix in self.wake_prefix)
-                    ):
+                    if text not in self.prefix and text != self.prefix + keyword:
                         texts.append(text)
 
         # 如果有引用消息，也遍历之
