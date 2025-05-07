@@ -32,7 +32,7 @@ from astrbot.core.star.filter.event_message_type import EventMessageType
     "astrbot_plugin_memelite_rs",
     "Zhalslar",
     "表情包生成器，制作各种沙雕表情（Rust重构版，速度快占用小） ",
-    "2.0.1",
+    "2.0.2",
     "https://github.com/Zhalslar/astrbot_plugin_memelite_rs",
 )
 class MemePlugin(Star):
@@ -258,7 +258,7 @@ class MemePlugin(Star):
         messages = event.get_messages()
         send_id: str = event.get_sender_id()
         self_id: str = event.get_self_id()
-        sender_name: str = event.get_sender_name()
+        sender_name: str = str(event.get_sender_name())
 
         target_ids: list[str] = []
         target_names: list[str] = []
@@ -268,7 +268,7 @@ class MemePlugin(Star):
             if isinstance(_seg, Comp.Image):
                 if img_url := _seg.url:
                     if msg_image := await self.download_image(img_url):
-                        meme_images.append(MemeImage(name, msg_image))
+                        meme_images.append(MemeImage(str(name), msg_image))
 
             elif isinstance(_seg, Comp.At):
                 seg_qq = str(_seg.qq)
@@ -380,7 +380,8 @@ class MemePlugin(Star):
             assert isinstance(event, AiocqhttpMessageEvent)
             client = event.bot
             user_info = await client.get_stranger_info(user_id=int(target_id))
-            nickname = user_info.get("nickname")
+            raw_nickname = user_info.get("nickname")
+            nickname = str(raw_nickname if raw_nickname is not None else "Unknown")
             sex = user_info.get("sex")
             return nickname, sex
         # TODO 适配更多消息平台
