@@ -1,5 +1,7 @@
 import asyncio
+import base64
 from pathlib import Path
+import random
 import aiohttp
 from meme_generator import (
     DeserializeError,
@@ -32,7 +34,7 @@ from astrbot.core.star.filter.event_message_type import EventMessageType
     "astrbot_plugin_memelite_rs",
     "Zhalslar",
     "表情包生成器，制作各种沙雕表情（Rust重构版，速度快占用小） ",
-    "2.0.2",
+    "2.0.3",
     "https://github.com/Zhalslar/astrbot_plugin_memelite_rs",
 )
 class MemePlugin(Star):
@@ -210,7 +212,9 @@ class MemePlugin(Star):
             keyword = next((k for k in self.meme_keywords if k in message_str), None)
         else:
             # 精确匹配：检查关键词是否等于消息字符串的第一个单词
-            keyword = next((k for k in self.meme_keywords if k == message_str.split()[0]), None)
+            keyword = next(
+                (k for k in self.meme_keywords if k == message_str.split()[0]), None
+            )
 
         if not keyword or keyword in self.memes_disabled_list:
             return
@@ -266,21 +270,31 @@ class MemePlugin(Star):
         async def _process_segment(_seg, name):
             """从消息段中获取参数"""
             if isinstance(_seg, Comp.Image):
-                if img_url := _seg.url:
-                    if msg_image := await self.download_image(img_url):
-                        meme_images.append(MemeImage(str(name), msg_image))
+                if hasattr(_seg, "url") and _seg.url:
+                    img_url = _seg.url
+                    if file_content := await self.download_image(img_url):
+                        meme_images.append(MemeImage(name, file_content))
+
+                elif hasattr(_seg, "file"):
+                    file_content = _seg.file
+                    if isinstance(file_content, str):
+                        if file_content.startswith("base64://"):
+                            file_content = file_content[len("base64://") :]
+                        file_content = base64.b64decode(file_content)
+                    if isinstance(file_content, bytes):
+                        meme_images.append(MemeImage(name, file_content))
 
             elif isinstance(_seg, Comp.At):
                 seg_qq = str(_seg.qq)
                 if seg_qq != self_id:
                     target_ids.append(seg_qq)
-                    at_avatar = await self.get_avatar(seg_qq)
-                    # 从消息平台获取At者的额外参数
-                    if result := await self._get_extra(event, target_id=seg_qq):
-                        nickname, sex = result
-                        options["name"], options["gender"] = nickname, sex
-                        target_names.append(nickname)
-                        meme_images.append(MemeImage(nickname, at_avatar))
+                    if at_avatar := await self.get_avatar(event, seg_qq):
+                        # 从消息平台获取At者的额外参数
+                        if result := await self._get_extra(event, target_id=seg_qq):
+                            nickname, sex = result
+                            options["name"], options["gender"] = nickname, sex
+                            target_names.append(nickname)
+                            meme_images.append(MemeImage(nickname, at_avatar))
 
             elif isinstance(_seg, Comp.Plain):
                 plains: list[str] = _seg.text.strip().split()
@@ -310,11 +324,11 @@ class MemePlugin(Star):
 
         # 确保图片数量在min_images到max_images之间
         if len(meme_images) < max_images:
-            use_avatar = await self.get_avatar(send_id)
-            meme_images.insert(0, MemeImage(sender_name, use_avatar))
+            if use_avatar := await self.get_avatar(event, send_id):
+                meme_images.insert(0, MemeImage(sender_name, use_avatar))
         if len(meme_images) < max_images:
-            bot_avatar = await self.get_avatar(self_id)
-            meme_images.append(MemeImage("我", bot_avatar))
+            if bot_avatar := await self.get_avatar(event, self_id):
+                meme_images.append(MemeImage("我", bot_avatar))
         meme_images = meme_images[:max_images]
 
         # 确保文本数量在min_texts到max_texts之间
@@ -422,8 +436,11 @@ class MemePlugin(Star):
             logger.error(f"图片下载失败: {e}")
 
     @staticmethod
-    async def get_avatar(user_id: str) -> bytes:
+    async def get_avatar(event: AstrMessageEvent, user_id: str) -> bytes | None:
         """下载头像"""
+        # if event.get_platform_name() == "aiocqhttp":
+        if not user_id.isdigit():
+            user_id = "".join(random.choices("0123456789", k=9))
         avatar_url = f"https://q4.qlogo.cn/headimg_dl?dst_uin={user_id}&spec=640"
         try:
             async with aiohttp.ClientSession() as client:
@@ -432,4 +449,4 @@ class MemePlugin(Star):
                 return await response.read()
         except Exception as e:
             logger.error(f"下载头像失败: {e}")
-            return b""
+            return None
