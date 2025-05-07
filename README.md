@@ -55,7 +55,7 @@ apt-get update && apt-get install -y libgl1 libglib2.0-0
 
 ## ⚙️ 配置
 
-请在astrbot面板配置，插件管理 -> astrbot_plugin_memelite -> 操作 -> 插件配置
+请在astrbot面板配置，插件管理 -> astrbot_plugin_memelite_rs -> 操作 -> 插件配置
 ![图片](https://github.com/user-attachments/assets/fe3c6adf-f210-4d93-9d8c-a06216507f10)
 
 ## ⌨️ 命令
@@ -110,8 +110,8 @@ apt-get update && apt-get install -y libgl1 libglib2.0-0
 
 ## 📌 注意事项
 
-- 本插件已换用meme-generator的rust重构版，旧版用户更新需重新下载资源。
-- 如果想第一时间得到反馈，请进作者的插件反馈群（QQ群）：460973561
+- 本插件对接的是meme-generator的rust重构版，Python版请搜索astrbot_plugin_memelite。
+- 如果想第一时间得到反馈，请进作者的插件反馈群（QQ群）：460973561（不点star不给进）
 
 ## 👥 贡献指南
 
@@ -190,8 +190,8 @@ port = 2233  # web server 端口
 
 ## 🔗 相关链接
 
-- [meme-generator](https://github.com/MemeCrafters/meme-generator-contrib-rs) 表情包生成器
-- [meme-generator的rust重构版](https://github.com/MemeCrafters/meme-generator-contrib-rs) 表情包生成器的rust重构版
+- [meme-generator](https://github.com/MemeCrafters/meme-generator) 表情包生成器
+- [meme-generator的rust重构版](https://github.com/MemeCrafters/meme-generator-rs) 表情包生成器的rust重构版
 - [meme-generator 额外表情仓库](https://github.com/MemeCrafters/meme-generator-contrib)
 - [meme-generator-rs 额外表情仓库](https://github.com/MemeCrafters/meme-generator-contrib-rs)
 - [nonebot-plugin-memes](https://github.com/MemeCrafters/nonebot-plugin-memes) 表情包生成器 meme-generator 的 Nonebot2 对接插件
