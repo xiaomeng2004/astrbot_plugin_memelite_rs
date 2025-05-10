@@ -34,7 +34,7 @@ from astrbot.core.star.filter.event_message_type import EventMessageType
     "astrbot_plugin_memelite_rs",
     "Zhalslar",
     "表情包生成器，制作各种沙雕表情（Rust重构版，速度快占用小） ",
-    "2.0.3",
+    "2.0.4",
     "https://github.com/Zhalslar/astrbot_plugin_memelite_rs",
 )
 class MemePlugin(Star):
@@ -328,7 +328,7 @@ class MemePlugin(Star):
                 meme_images.insert(0, MemeImage(sender_name, use_avatar))
         if len(meme_images) < max_images:
             if bot_avatar := await self.get_avatar(event, self_id):
-                meme_images.append(MemeImage("我", bot_avatar))
+                meme_images.insert(0, MemeImage("我", bot_avatar))
         meme_images = meme_images[:max_images]
 
         # 确保文本数量在min_texts到max_texts之间
