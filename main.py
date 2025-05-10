@@ -58,7 +58,7 @@ class MemePlugin(Star):
         self.is_check_resources: bool = config.get("is_check_resources", True)
         if self.is_check_resources:
             logger.info("正在检查memes资源文件...")
-            asyncio.create_task(check_resources_in_background())
+            check_resources_in_background()
 
     @filter.command("meme帮助", alias={"表情帮助"})
     async def memes_help(self, event: AstrMessageEvent):
