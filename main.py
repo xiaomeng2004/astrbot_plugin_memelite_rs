@@ -193,6 +193,9 @@ class MemePlugin(Star):
                 return
             first_seg = chain[0]
             # 前缀触发
+            if isinstance(first_seg, Comp.Plain):
+                if not first_seg.text.startswith(self.prefix):
+                    return
             if isinstance(first_seg, Comp.Reply) and len(chain) > 1:
                 second_seg = chain[1]
                 if isinstance(
