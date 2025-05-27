@@ -33,6 +33,8 @@ from astrbot.core.star.filter.event_message_type import EventMessageType
 from PIL import Image, ImageDraw, ImageFont
 
 font_path: Path = Path(__file__).resolve().parent / "simhei.ttf"
+
+
 @register(
     "astrbot_plugin_memelite_rs",
     "Zhalslar",
@@ -65,17 +67,22 @@ class MemePlugin(Star):
 
     @staticmethod
     def custom_sort_key(keyword):
-        # 如果是汉字，按拼音排序
-        if re.match(r"^[\u4e00-\u9fa5]+$", keyword):
-            return "".join(lazy_pinyin(keyword))
-        # 其他类型不处理，直接返回原关键词
-        return keyword
+        # 获取第一个字符
+        first_char = keyword[0]
 
+        # 判断第一个字符的类型
+        if first_char.isdigit():
+            return (0, -int(first_char))  # 数字从大到小
+        elif re.match(r"^[\u4e00-\u9fa5a-zA-Z]$", first_char):
+            # 汉字或字母按拼音或字母顺序
+            return (1, "".join(lazy_pinyin(first_char)))
+        else:
+            return (2, first_char)  # 其他字符放在最后
 
     @filter.command("meme帮助", alias={"表情帮助"})
     async def memes_help(self, event: AstrMessageEvent):
         "查看有哪些关键词可以触发meme"
-        meme_keywords = ["/".join(meme.keywords) for meme in self.memes]
+        meme_keywords = ["/".join(meme.info.keywords) for meme in self.memes]
         sorted_keywords = sorted(meme_keywords, key=self.custom_sort_key)
         image_bytes: bytes | None = self.generate_image(sorted_keywords)
         if image_bytes:
@@ -137,7 +144,6 @@ class MemePlugin(Star):
         buf.seek(0)
 
         return buf.getvalue()
-
 
     @filter.command("meme详情", alias={"表情详情"})
     async def meme_details_show(
@@ -334,7 +340,7 @@ class MemePlugin(Star):
         options: dict[str, Union[bool, str, int, float]] = {}
 
         params = meme.info.params
-        min_images: int = params.min_images
+        min_images: int = params.min_images  # noqa: F841
         max_images: int = params.max_images
         min_texts: int = params.min_texts
         max_texts: int = params.max_texts
