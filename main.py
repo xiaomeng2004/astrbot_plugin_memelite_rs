@@ -34,7 +34,7 @@ from astrbot.core.star.filter.event_message_type import EventMessageType
     "astrbot_plugin_memelite_rs",
     "Zhalslar",
     "表情包生成器，制作各种沙雕表情（Rust重构版，速度快占用小） ",
-    "2.0.5",
+    "2.0.6",
     "https://github.com/Zhalslar/astrbot_plugin_memelite_rs",
 )
 class MemePlugin(Star):
@@ -261,7 +261,9 @@ class MemePlugin(Star):
         options: dict[str, Union[bool, str, int, float]] = {}
 
         params = meme.info.params
+        min_images: int = params.min_images
         max_images: int = params.max_images
+        min_texts: int = params.min_texts
         max_texts: int = params.max_texts
         default_texts: list[str] = params.default_texts
 
@@ -328,7 +330,7 @@ class MemePlugin(Star):
         if not target_names:
             target_names.append(sender_name)
 
-        # 确保图片数量在min_images到max_images之间
+        # 确保图片数量在min_images到max_images之间(尽可能地获取图片)
         if len(meme_images) < max_images:
             if use_avatar := await self.get_avatar(event, send_id):
                 meme_images.insert(0, MemeImage(sender_name, use_avatar))
@@ -337,9 +339,11 @@ class MemePlugin(Star):
                 meme_images.insert(0, MemeImage("我", bot_avatar))
         meme_images = meme_images[:max_images]
 
-        # 确保文本数量在min_texts到max_texts之间
-        texts.extend(target_names)
-        texts.extend(default_texts)
+        # 确保文本数量在min_texts到max_texts之间(文本参数足够即可)
+        if len(texts) < min_texts and target_names:
+            texts.extend(target_names)
+        if len(texts) < min_texts and default_texts:
+            texts.extend(default_texts)
         texts = texts[:max_texts]
 
         return meme_images, texts, options
