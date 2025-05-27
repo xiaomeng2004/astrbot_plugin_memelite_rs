@@ -1,7 +1,9 @@
 import asyncio
 import base64
+import math
 from pathlib import Path
 import random
+import re
 import aiohttp
 from meme_generator import (
     DeserializeError,
@@ -16,6 +18,7 @@ from meme_generator import (
 from meme_generator import Meme, get_memes
 from meme_generator import Image as MemeImage
 from meme_generator.resources import check_resources_in_background
+from pypinyin import lazy_pinyin
 
 from astrbot import logger
 from astrbot.api.event import filter
@@ -25,11 +28,11 @@ from astrbot.core.platform import AstrMessageEvent
 
 import io
 from typing import List, Union
-from PIL import Image
 import astrbot.core.message.components as Comp
 from astrbot.core.star.filter.event_message_type import EventMessageType
+from PIL import Image, ImageDraw, ImageFont
 
-
+font_path: Path = Path(__file__).resolve().parent / "simhei.ttf"
 @register(
     "astrbot_plugin_memelite_rs",
     "Zhalslar",
@@ -60,11 +63,81 @@ class MemePlugin(Star):
             logger.info("正在检查memes资源文件...")
             check_resources_in_background()
 
+    @staticmethod
+    def custom_sort_key(keyword):
+        # 如果是汉字，按拼音排序
+        if re.match(r"^[\u4e00-\u9fa5]+$", keyword):
+            return "".join(lazy_pinyin(keyword))
+        # 其他类型不处理，直接返回原关键词
+        return keyword
+
+
     @filter.command("meme帮助", alias={"表情帮助"})
     async def memes_help(self, event: AstrMessageEvent):
         "查看有哪些关键词可以触发meme"
-        image_path = Path(__file__).parent / "memes_help.jpg"
-        yield event.image_result(str(image_path))
+        meme_keywords = ["/".join(meme.keywords) for meme in self.memes]
+        sorted_keywords = sorted(meme_keywords, key=self.custom_sort_key)
+        image_bytes: bytes | None = self.generate_image(sorted_keywords)
+        if image_bytes:
+            yield event.chain_result([Comp.Image.fromBytes(image_bytes)])
+        else:
+            yield event.plain_result("meme帮助图生成错误")
+
+    @staticmethod
+    def generate_image(
+        data_list, image_size=(2068, 2820), font_size=30, columns=5, padding=10
+    ):
+        # 计算真正的绘图区域
+        draw_width = image_size[0] - 2 * padding
+        draw_height = image_size[1] - 2 * padding
+
+        # 创建一个白色背景的图片
+        img = Image.new("RGB", image_size, "white")
+        draw = ImageDraw.Draw(img)
+
+        # 加载字体
+        font = ImageFont.truetype(font_path, font_size)
+
+        column_width = draw_width // columns
+        rows = math.ceil(len(data_list) / columns)
+        row_height = draw_height / rows
+
+        # 绘制背景和文本
+        for i, text in enumerate(data_list):
+            col = i // rows  # 当前列
+            row = i % rows  # 当前行
+            x = col * column_width + padding
+            y = row * row_height + padding
+
+            # 设定背景颜色规则
+            if (col % 2 == 0 and row % 2 == 0) or (col % 2 == 1 and row % 2 == 1):
+                bg_color = (245, 245, 245)  # 浅灰色背景
+            else:
+                bg_color = (255, 255, 255)  # 纯白背景
+
+            # 设定文本颜色
+            text_color = (
+                random.randint(0, 128),
+                random.randint(0, 128),
+                random.randint(0, 128),
+            )
+
+            # 绘制背景块
+            draw.rectangle([(x, y), (x + column_width, y + row_height)], fill=bg_color)
+            draw.text(
+                (x + 10, y + (row_height - font_size) / 2),
+                text,
+                fill=text_color,
+                font=font,
+            )
+
+        # 保存图片到字节流
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        buf.seek(0)
+
+        return buf.getvalue()
+
 
     @filter.command("meme详情", alias={"表情详情"})
     async def meme_details_show(
