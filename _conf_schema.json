@@ -27,7 +27,7 @@
     "sort_by_str": {
         "description": "meme列表排序方式",
         "type": "string",
-        "hint": "影响查看meme列表时的排序（暂时是无效配置）",
+        "hint": "查看meme列表时的排序",
         "options": [
             "key",
             "keywords",
@@ -35,7 +35,7 @@
             "date_created",
             "date_modified"
         ],
-        "default": "key"
+        "default": "keywords_pinyin"
     },
     "memes_disabled_list": {
         "description": "meme黑名单",
