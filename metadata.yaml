@@ -1,6 +1,6 @@
 name: astrbot_plugin_memelite_rs
-desc: 表情包生成器，制作各种沙雕表情（Rust重构版，速度快占用小） 
+desc: 表情包生成器，制作各种沙雕表情（Rust重构版，速度快占用小；添加了头像缓存） 
 help: 关键词触发表情包生成  # 插件的帮助信息
 version: v2.0.6 # 插件版本号。格式：v1.1.1 或者 v1.1
-author: Zhalslar # 作者
+author: Zhalslar（悦悦二改） # 作者
 repo: https://github.com/Zhalslar/astrbot_plugin_memelite_rs # 插件的仓库地址

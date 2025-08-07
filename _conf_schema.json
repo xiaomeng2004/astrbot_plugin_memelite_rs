@@ -42,5 +42,17 @@
         "type": "list",
         "hint": "黑名单里的关键词会被屏蔽而无法触发meme",
       "default": []
+    },
+    "avatar_cache_max_count": {
+        "description": "头像缓存最大数量",
+        "type": "int",
+        "hint": "头像缓存的最大数量，达到上限后会删除最旧的缓存，设置为0表示禁用缓存",
+        "default": 50
+    },
+    "avatar_cache_max_size_mb": {
+        "description": "头像缓存最大内存占用(MB)",
+        "type": "int",
+        "hint": "头像缓存的最大内存占用，单位MB，达到上限后会删除最旧的缓存直到内存占用降低",
+        "default": 20
     }
 }

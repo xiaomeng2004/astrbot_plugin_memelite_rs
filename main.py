@@ -2,6 +2,8 @@ import asyncio
 import base64
 import random
 import aiohttp
+import time
+from collections import OrderedDict
 from meme_generator import (
     DeserializeError,
     ImageAssetMissing,
@@ -58,6 +60,13 @@ class MemePlugin(Star):
         if self.is_check_resources:
             logger.info("正在检查memes资源文件...")
             check_resources_in_background()
+
+        # 头像缓存，使用 OrderedDict 实现 FIFO
+        self._avatar_cache: OrderedDict[str, tuple[bytes, float]] = OrderedDict()
+        self._max_cache_size: int = config.get("avatar_cache_max_count", 50)
+        self._max_cache_size_bytes: int = config.get("avatar_cache_max_size_mb", 20) * 1024 * 1024
+        
+        logger.info(f"头像缓存已初始化，最大缓存数量: {self._max_cache_size}，最大内存占用: {self._max_cache_size_bytes // 1024 // 1024} MB")
 
     @filter.command("meme帮助", alias={"表情帮助"})
     async def memes_help(self, event: AstrMessageEvent):
@@ -199,6 +208,65 @@ class MemePlugin(Star):
     async def list_supervisors(self, event: AstrMessageEvent):
         """查看禁用的meme"""
         yield event.plain_result(f"当前禁用的meme: {self.memes_disabled_list}")
+
+    @filter.command("清空头像缓存", alias={"清理头像缓存"})
+    async def clear_avatar_cache(self, event: AstrMessageEvent):
+        """清空头像缓存"""
+        cache_count = len(self._avatar_cache)
+        self._avatar_cache.clear()
+        yield event.plain_result(f"已清空头像缓存，共清理了 {cache_count} 个头像")
+        logger.info(f"头像缓存已清空，共清理了 {cache_count} 个头像")
+
+    @filter.command("删除头像缓存", alias={"移除头像缓存"})
+    async def remove_avatar_cache(self, event: AstrMessageEvent, user_id: str | None = None):
+        """删除指定用户的头像缓存"""
+        target_user_id = None
+        
+        # 优先从消息中获取@的用户ID
+        messages = event.get_messages()
+        at_seg = next((seg for seg in messages if isinstance(seg, Comp.At)), None)
+        if at_seg:
+            target_user_id = str(at_seg.qq)
+        elif user_id:
+            # 如果没有@用户，使用传入的用户ID参数
+            target_user_id = user_id
+        else:
+            yield event.plain_result("请@要删除缓存的用户或提供用户ID，例如：删除头像缓存 @用户 或 删除头像缓存 123456789")
+            return
+        
+        if target_user_id in self._avatar_cache:
+            del self._avatar_cache[target_user_id]
+            yield event.plain_result(f"已删除用户 {target_user_id} 的头像缓存")
+            logger.info(f"已删除用户 {target_user_id} 的头像缓存，当前缓存数量: {len(self._avatar_cache)}")
+        else:
+            yield event.plain_result(f"用户 {target_user_id} 的头像缓存不存在")
+
+    @filter.command("查看头像缓存", alias={"头像缓存状态"})
+    async def show_avatar_cache_status(self, event: AstrMessageEvent):
+        """查看头像缓存状态"""
+        cache_count = len(self._avatar_cache)
+        max_count = self._max_cache_size
+        max_size_mb = self._max_cache_size_bytes // 1024 // 1024
+        
+        if self._max_cache_size <= 0:
+            yield event.plain_result("头像缓存已禁用")
+            return
+        
+        if cache_count == 0:
+            yield event.plain_result(f"头像缓存为空\n最大数量限制: {max_count}\n最大内存限制: {max_size_mb} MB")
+        else:
+            # 计算缓存中每个头像的大小
+            total_size = self._get_cache_size_bytes()
+            size_mb = total_size / 1024 / 1024
+            avg_size_kb = total_size / cache_count / 1024
+            
+            cache_info = f"头像缓存状态:\n"
+            cache_info += f"缓存数量: {cache_count}/{max_count}\n"
+            cache_info += f"内存占用: {size_mb:.2f}/{max_size_mb} MB\n"
+            cache_info += f"平均大小: {avg_size_kb:.1f} KB/个\n"
+            cache_info += f"使用率: 数量 {cache_count/max_count*100:.1f}%，内存 {size_mb/max_size_mb*100:.1f}%"
+            
+            yield event.plain_result(cache_info)
 
     @filter.event_message_type(EventMessageType.ALL)
     async def meme_handle(self, event: AstrMessageEvent):
@@ -419,6 +487,45 @@ class MemePlugin(Star):
 
         return result
 
+    def _get_cached_avatar(self, user_id: str) -> bytes | None:
+        """从缓存中获取头像"""
+        if user_id in self._avatar_cache:
+            avatar_data, timestamp = self._avatar_cache[user_id]
+            # 将访问的项移到末尾（更新访问时间）
+            self._avatar_cache.move_to_end(user_id)
+            return avatar_data
+        return None
+
+    def _get_cache_size_bytes(self) -> int:
+        """获取当前缓存占用的总字节数"""
+        return sum(len(avatar_data) for avatar_data, _ in self._avatar_cache.values())
+
+    def _cache_avatar(self, user_id: str, avatar_data: bytes) -> None:
+        """缓存头像数据"""
+        # 如果缓存被禁用（max_cache_size为0），直接返回
+        if self._max_cache_size <= 0:
+            return
+        
+        # 如果已存在，先删除旧的
+        if user_id in self._avatar_cache:
+            del self._avatar_cache[user_id]
+        
+        # 检查数量限制：如果缓存已满，删除最旧的（第一个）
+        while len(self._avatar_cache) >= self._max_cache_size:
+            oldest_key = next(iter(self._avatar_cache))
+            del self._avatar_cache[oldest_key]
+            logger.debug(f"缓存数量已满，删除最旧的头像缓存: {oldest_key}")
+        
+        # 检查内存限制：如果添加新头像后会超过内存限制，删除最旧的缓存
+        while self._avatar_cache and (self._get_cache_size_bytes() + len(avatar_data)) > self._max_cache_size_bytes:
+            oldest_key = next(iter(self._avatar_cache))
+            del self._avatar_cache[oldest_key]
+            logger.debug(f"缓存内存已满，删除最旧的头像缓存: {oldest_key}")
+        
+        # 添加新的头像到缓存
+        self._avatar_cache[user_id] = (avatar_data, time.time())
+        logger.debug(f"头像已缓存: {user_id}，当前缓存数量: {len(self._avatar_cache)}，占用内存: {self._get_cache_size_bytes() // 1024} KB")
+
     @staticmethod
     async def _get_extra(event: AstrMessageEvent, target_id: str):
         """从消息平台获取参数"""
@@ -471,10 +578,19 @@ class MemePlugin(Star):
         except Exception as e:
             logger.error(f"图片下载失败: {e}")
 
-    @staticmethod
-    async def get_avatar(event: AstrMessageEvent, user_id: str) -> bytes | None:
-        """下载头像"""
-        # if event.get_platform_name() == "aiocqhttp":
+    async def get_avatar(self, event: AstrMessageEvent, user_id: str) -> bytes | None:
+        """下载头像（带缓存功能）"""
+        # 如果缓存被禁用，直接下载
+        if self._max_cache_size <= 0:
+            logger.debug("头像缓存已禁用，直接下载")
+        else:
+            # 先尝试从缓存获取
+            cached_avatar = self._get_cached_avatar(user_id)
+            if cached_avatar:
+                logger.debug(f"从缓存获取头像: {user_id}")
+                return cached_avatar
+        
+        # 缓存中没有或缓存被禁用，下载头像
         if not user_id.isdigit():
             user_id = "".join(random.choices("0123456789", k=9))
         avatar_url = f"https://q4.qlogo.cn/headimg_dl?dst_uin={user_id}&spec=640"
@@ -482,7 +598,16 @@ class MemePlugin(Star):
             async with aiohttp.ClientSession() as client:
                 response = await client.get(avatar_url, timeout=10)
                 response.raise_for_status()
-                return await response.read()
+                avatar_data = await response.read()
+                
+                # 如果缓存未禁用，缓存头像数据
+                if self._max_cache_size > 0:
+                    self._cache_avatar(user_id, avatar_data)
+                    logger.debug(f"下载并缓存头像: {user_id}")
+                else:
+                    logger.debug(f"下载头像（缓存已禁用）: {user_id}")
+                
+                return avatar_data
         except Exception as e:
             logger.error(f"下载头像失败: {e}")
             return None
