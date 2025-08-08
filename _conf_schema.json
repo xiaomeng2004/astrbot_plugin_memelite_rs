@@ -37,11 +37,35 @@
         ],
         "default": "keywords_pinyin"
     },
+    "use_whitelist": {
+        "description": "使用白名单模式",
+        "type": "bool",
+        "hint": "开启后将使用白名单模式，只有白名单中的meme才能触发；关闭则使用黑名单模式",
+        "default": false
+    },
     "memes_disabled_list": {
         "description": "meme黑名单",
         "type": "list",
-        "hint": "黑名单里的关键词会被屏蔽而无法触发meme",
-      "default": []
+        "hint": "黑名单里的关键词会被屏蔽而无法触发meme（黑名单模式下生效）",
+        "default": []
+    },
+    "memes_enabled_list": {
+        "description": "meme白名单", 
+        "type": "list",
+        "hint": "白名单里的关键词才能触发meme（白名单模式下生效）",
+        "default": []
+    },
+    "require_admin_for_management": {
+        "description": "管理命令需要管理员权限",
+        "type": "bool",
+        "hint": "开启后，只有管理员列表中的用户才能使用meme管理相关命令（禁用/启用/切换模式等）",
+        "default": true
+    },
+    "admin_users": {
+        "description": "管理员用户列表",
+        "type": "list",
+        "hint": "填写管理员的用户ID，这些用户可以使用meme管理命令。",
+        "default": []
     },
     "avatar_cache_max_count": {
         "description": "头像缓存最大数量",
