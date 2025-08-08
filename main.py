@@ -116,17 +116,25 @@ class MemePlugin(Star):
         
         # 构建参数映射表
         param_map = {}
+        used_short_params = set()  # 跟踪已使用的短参数
+        
         for arg in meme_args:
             # 主要参数名
             if hasattr(arg, 'name'):
                 param_map[arg.name] = arg
                 param_map[arg.name.replace('_', '-')] = arg  # 支持短横线格式
+                
+                # 自动生成短参数：取参数名的首字母作为短参数，避免冲突
+                short_param = arg.name[0].lower()
+                if short_param not in used_short_params:
+                    param_map[short_param] = arg
+                    used_short_params.add(short_param)
             
-            # 别名支持
+            # 别名支持 - 使用meme定义中的aliases
             if hasattr(arg, 'aliases') and arg.aliases:
                 for alias in arg.aliases:
+                    # 直接使用aliases中定义的别名
                     param_map[alias] = arg
-                    param_map[alias.lstrip('-')] = arg  # 支持去除前缀的别名
         
         i = 0
         while i < len(text_parts):
@@ -238,14 +246,8 @@ class MemePlugin(Star):
     
     def _parse_generic_param(self, param_name: str, text_parts: list[str], index: int, options: dict) -> bool:
         """通用参数解析方法（当无法从meme定义获取参数信息时使用）"""
-        # 常见的布尔参数
-        bool_params = {'c', 'circle', 'r', 'reverse', 'flip', 'rotate'}
-        
-        if param_name in bool_params:
-            options[param_name] = True
-            return True
-        
-        # 其他参数尝试获取值
+        # 不使用通用短参数，只支持基本的参数解析
+        # 尝试获取值
         if index + 1 < len(text_parts) and not text_parts[index + 1].startswith('-'):
             value = text_parts[index + 1]
             try:
@@ -571,16 +573,37 @@ class MemePlugin(Star):
         
         if meme_args:
             meme_info += f"\n可用参数 ({len(meme_args)}个)：\n"
+            
+            # 先构建短参数映射以检查冲突
+            used_short_params = set()
+            short_param_map = {}
+            for arg in meme_args:
+                if hasattr(arg, 'name'):
+                    short_param = arg.name[0].lower()
+                    if short_param not in used_short_params:
+                        short_param_map[arg.name] = short_param
+                        used_short_params.add(short_param)
+            
             for i, arg in enumerate(meme_args):
                 arg_line = f"• "
                 
                 # 参数名和别名
                 if hasattr(arg, 'name'):
-                    # 先添加短别名
+                    # 显示自动生成的短参数（如果没有冲突）
+                    if arg.name in short_param_map:
+                        arg_line += f"-{short_param_map[arg.name]}/"
+                    
+                    # 添加aliases中的短参数
                     if hasattr(arg, 'aliases') and arg.aliases:
-                        short_aliases = [alias.lstrip('-') for alias in arg.aliases if len(alias.lstrip('-')) <= 2]
+                        short_aliases = []
+                        for alias in arg.aliases:
+                            clean_alias = alias.lstrip('-')
+                            if len(clean_alias) <= 2:  # 短参数
+                                # 避免与自动生成的短参数重复
+                                if arg.name not in short_param_map or clean_alias != short_param_map[arg.name]:
+                                    short_aliases.append(clean_alias)
                         if short_aliases:
-                            arg_line += f"-{'/'.join(short_aliases)}/"
+                            arg_line += f"{'/'.join(short_aliases)}/"
                     
                     arg_line += f"--{arg.name}"
                 
@@ -590,6 +613,12 @@ class MemePlugin(Star):
                 # 默认值
                 if hasattr(arg, 'default') and arg.default is not None:
                     param_details.append(f"默认:{arg.default}")
+                
+                # 最小值和最大值
+                if hasattr(arg, 'minimum') and arg.minimum is not None:
+                    param_details.append(f"最小值:{arg.minimum}")
+                if hasattr(arg, 'maximum') and arg.maximum is not None:
+                    param_details.append(f"最大值:{arg.maximum}")
                 
                 # 可选值
                 if hasattr(arg, 'choices') and arg.choices:
@@ -706,8 +735,8 @@ class MemePlugin(Star):
             yield event.plain_result("❌ 此命令需要管理员权限")
             return
             
-        if not action or not tag or action not in ["添加", "移除"]:
-            yield event.plain_result("用法：按标签管理名单 [添加/移除] [标签名]\n例如：按标签管理名单 添加 动物")
+        if not action or not tag or action not in ["添加", "移除", "启用", "禁用"]:
+            yield event.plain_result("用法：按标签管理名单 [添加/移除/启用/禁用] [标签名]\n例如：按标签管理名单 启用 动物")
             return
         
         # 找到包含指定标签的所有meme
@@ -722,38 +751,24 @@ class MemePlugin(Star):
             yield event.plain_result(f"没有找到标签为 '{tag}' 的meme")
             return
         
-        processed_memes = []
-        if action == "添加":
-            for meme_name in tagged_memes:
-                if self.use_whitelist:
-                    if meme_name not in self.memes_enabled_list:
-                        self.memes_enabled_list.append(meme_name)
-                        processed_memes.append(meme_name)
-                else:
-                    if meme_name not in self.memes_disabled_list:
-                        self.memes_disabled_list.append(meme_name)
-                        processed_memes.append(meme_name)
-        else:  # 移除
-            for meme_name in tagged_memes:
-                if self.use_whitelist:
-                    if meme_name in self.memes_enabled_list:
-                        self.memes_enabled_list.remove(meme_name)
-                        processed_memes.append(meme_name)
-                else:
-                    if meme_name in self.memes_disabled_list:
-                        self.memes_disabled_list.remove(meme_name)
-                        processed_memes.append(meme_name)
+        # 将操作转换为标准格式
+        operation = None
+        if action in ["添加", "启用"]:
+            operation = 'enable'
+        elif action in ["移除", "禁用"]:
+            operation = 'disable'
         
-        if processed_memes:
-            self.config.save_config(replace_config=self.config)
+        # 使用通用处理函数
+        valid_memes, invalid_memes, already_in_state = self._process_meme_operation(tuple(tagged_memes), operation)
         
-        mode = "白名单" if self.use_whitelist else "黑名单"
-        if processed_memes:
-            yield event.plain_result(f"按标签 '{tag}' {action}到{mode}成功：\n{', '.join(processed_memes)}\n共 {len(processed_memes)} 个meme")
+        # 生成结果消息
+        op_text = "启用" if operation == 'enable' else "禁用"
+        if valid_memes:
+            yield event.plain_result(f"按标签 '{tag}' {op_text}成功：\n{', '.join(valid_memes)}\n共 {len(valid_memes)} 个meme")
         else:
-            yield event.plain_result(f"标签 '{tag}' 下的所有meme都已在{mode}的正确状态中")
+            yield event.plain_result(f"标签 '{tag}' 下的所有meme都已处于目标状态")
         
-        logger.info(f"按标签 {tag} {action}到{mode}: {processed_memes}")
+        logger.info(f"按标签 {tag} {op_text}: {valid_memes}")
 
     @filter.command("导入名单")
     async def import_meme_list(self, event: AstrMessageEvent, list_text: str = None):
